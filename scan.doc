@@ -1,0 +1,351 @@
+<html xmlns:o="urn:schemas-microsoft-com:office:office"
+      xmlns:w="urn:schemas-microsoft-com:office:word"
+      xmlns="http://www.w3.org/TR/REC-html40">
+<head>
+<meta charset="utf-8">
+<title>Smart Assignment Submission System</title>
+<style>
+  body {
+    font-family: 'Calibri', 'Arial', sans-serif;
+    color: #333333;
+    line-height: 1.6;
+    padding: 20px;
+  }
+  h1 { color: #2C3E50; font-size: 26pt; border-bottom: 2px solid #2C3E50; padding-bottom: 5px; text-align: center; }
+  h2 { color: #34495E; font-size: 18pt; margin-top: 35px; border-bottom: 1px solid #BDC3C7; padding-bottom: 5px; page-break-after: avoid; }
+  h3 { color: #2980B9; font-size: 14pt; margin-top: 20px; page-break-after: avoid; }
+  pre {
+    background-color: #F8F9FA;
+    border: 1px solid #E9ECEF;
+    padding: 15px;
+    font-family: 'Consolas', 'Courier New', monospace;
+    font-size: 9.5pt;
+    white-space: pre-wrap;
+    page-break-inside: avoid;
+    border-radius: 5px;
+  }
+  table { border-collapse: collapse; width: 100%; margin: 20px 0; page-break-inside: avoid; }
+  th, td { border: 1px solid #BDC3C7; padding: 10px; text-align: left; vertical-align: top; font-size: 11pt; }
+  th { background-color: #ECF0F1; color: #2C3E50; font-weight: bold; }
+  ul, ol { margin-bottom: 20px; }
+  li { margin-bottom: 8px; }
+  strong { color: #2C3E50; }
+  .cover-page { height: 800px; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; }
+  .subtitle { font-size: 16pt; color: #7F8C8D; margin-top: 10px; }
+</style>
+</head>
+<body>
+
+<div class="cover-page">
+    <h1>Smart Assignment Submission System</h1>
+    <div class="subtitle">Technical Architecture & Implementation Document</div>
+    <br><br>
+    <p><strong>Version:</strong> 1.0</p>
+    <p><strong>Confidentiality:</strong> Internal — Development Team</p>
+    <p style="page-break-after: always;"></p>
+</div>
+
+<h2>1. EXECUTIVE SUMMARY</h2>
+<p>This document provides a comprehensive technical blueprint for building a <strong>standalone Assignment Submission System</strong> that allows students to scan a QR code from a web application, establish a real-time WebSocket connection with their mobile device, capture handwritten assignment pages via camera, process them through a Computer Vision pipeline, generate an enhanced PDF, and deliver it back for submission or storage.</p>
+<p>The system is designed as a <strong>standalone microservice</strong> with clean API boundaries so it can be seamlessly integrated into any larger school management application.</p>
+
+<h2>2. SYSTEM OVERVIEW & HIGH-LEVEL FLOW</h2>
+<pre>
+┌─────────────────────────────────────────────────────────────────────────┐
+│                        HIGH-LEVEL SYSTEM FLOW                           │
+├─────────────────────────────────────────────────────────────────────────┤
+│                                                                         │
+│  ┌──────────┐    ┌──────────┐    ┌──────────┐    ┌──────────────────┐   │
+│  │ STEP 1   │───▶│ STEP 2   │───▶│ STEP 3   │───▶│ STEP 4           │   │
+│  │ Click    │    │ QR Code  │    │ Choose   │    │ Open Camera      │   │
+│  │ Submit   │    │ Scan or  │    │ Mode     │    │ Capture Pages    │   │
+│  │ Button   │    │ Continue │    │          │    │                  │   │
+│  └──────────┘    │ on Same  │    └──────────┘    └──────────────────┘   │
+│                  │ Device   │                            │              │
+│                  └──────────┘                            ▼              │
+│  ┌──────────┐    ┌──────────┐    ┌──────────┐    ┌──────────────────┐   │
+│  │ STEP 8   │◀───│ STEP 7   │◀───│ STEP 6   │◀───│ STEP 5           │   │
+│  │ Upload   │    │ Deliver  │    │ CV       │    │ Click Finish     │   │
+│  │ to DB /  │    │ PDF Back │    │ Pipeline │    │                  │   │
+│  │ Share    │    │          │    │ Process  │    │                  │   │
+│  └──────────┘    └──────────┘    └──────────┘    └──────────────────┘   │
+│                                                                         │
+└─────────────────────────────────────────────────────────────────────────┘
+</pre>
+
+<h2>3. DETAILED STEP-BY-STEP FLOW</h2>
+<h3>Step 1: Assignment Submit Button</h3>
+<ul>
+    <li>Student navigates to the Assignments module in the school application.</li>
+    <li>Clicks the <strong>"Submit Assignment"</strong> button.</li>
+    <li>The backend generates a <strong>unique session ID</strong> (UUID v4) and a <strong>short-lived JWT token</strong> embedded in a QR code URL.</li>
+</ul>
+
+<h3>Step 2: QR Code Display & Device Connection</h3>
+<ul>
+    <li>The web app displays:
+        <ul>
+            <li>A <strong>QR Code</strong> containing a URL like: <code>https://{domain}/capture/{session_id}?token={jwt_token}</code></li>
+            <li>A <strong>"Continue on this device"</strong> button for users already on a capable device.</li>
+        </ul>
+    </li>
+    <li><strong>QR Code Scan Path</strong>: User scans with mobile → opens URL in mobile browser → WebSocket handshake initiated.</li>
+    <li><strong>Same Device Path</strong>: User clicks continue → same browser opens the capture interface → WebSocket or internal event bus used.</li>
+</ul>
+
+<h3>Step 3: Mode Confirmation</h3>
+<ul>
+    <li>On the capture device, user sees a confirmation screen:
+        <ul>
+            <li>Session details (assignment name, subject)</li>
+            <li><strong>"Start Camera Capture"</strong> button</li>
+            <li>Device compatibility check (camera permissions, browser support)</li>
+        </ul>
+    </li>
+</ul>
+
+<h3>Step 4: Camera Opens & Page Capture</h3>
+<ul>
+    <li>Camera opens using the <strong>MediaDevices API</strong> (<code>getUserMedia</code>).</li>
+    <li>User shows pages of their handwritten copy one by one.</li>
+    <li>For each page:
+        <ul>
+            <li>Live preview with <strong>edge detection overlay</strong> (guides the user to align the page).</li>
+            <li>User taps <strong>"Capture"</strong> or system <strong>auto-captures</strong> when a stable document is detected.</li>
+            <li>Captured image is sent via <strong>WebSocket as binary frame</strong> (or chunked base64) to the backend.</li>
+            <li>A thumbnail confirmation appears on screen.</li>
+        </ul>
+    </li>
+    <li>User can <strong>re-capture</strong> any page or <strong>reorder</strong> pages.</li>
+</ul>
+
+<h3>Step 5: Finish Capture</h3>
+<ul>
+    <li>User clicks <strong>"Finish"</strong> button.</li>
+    <li>A final confirmation shows all captured page thumbnails.</li>
+    <li>User confirms → a "Processing..." state is shown.</li>
+</ul>
+
+<h3>Step 6: CV Pipeline Processing</h3>
+<pre>
+┌─────────────────────────────────────────────────────────────────────────┐
+│                      CV PIPELINE ARCHITECTURE                           │
+├─────────────────────────────────────────────────────────────────────────┤
+│                                                                         │
+│  Raw Image                                                              │
+│      │                                                                  │
+│      ▼                                                                  │
+│  ┌──────────────────────┐                                               │
+│  │ 1. DOCUMENT DETECTION│  ── Contour detection, find paper edges       │
+│  │    & PERSPECTIVE     │  ── Four-point perspective transform          │
+│  └──────────┬───────────┘                                               │
+│             ▼                                                           │
+│  ┌──────────────────────┐                                               │
+│  │ 2. SHADOW REMOVAL    │  ── Morphological closing background estimate │
+│  │                      │  ── Divide original by background             │
+│  └──────────┬───────────┘                                               │
+│             ▼                                                           │
+│  ┌──────────────────────┐                                               │
+│  │ 3. LIGHTING &        │  ── CLAHE (Adaptive Histogram Equalization)   │
+│  │    CONTRAST          │  ── White balance correction                  │
+│  └──────────┬───────────┘                                               │
+│             ▼                                                           │
+│  ┌──────────────────────┐                                               │
+│  │ 4. CONTENT DETECTION │  ── Classify regions as text vs diagram       │
+│  │    & BINARIZATION    │  ── Sauvola adaptive thresholding for text    │
+│  │                      │  ── Preserve diagram regions in grayscale     │
+│  └──────────┬───────────┘                                               │
+│             ▼                                                           │
+│  ┌──────────────────────┐                                               │
+│  │ 5. PDF GENERATION    │  ── Compile pages, compress, add metadata     │
+│  └──────────────────────┘                                               │
+│                                                                         │
+└─────────────────────────────────────────────────────────────────────────┘
+</pre>
+
+<h3>Step 7 & 8: PDF Delivery and Storage</h3>
+<ul>
+    <li><strong>If scanned via mobile</strong>: PDF is sent back through the WebSocket connection to the original device. Mobile shows "Submission Complete."</li>
+    <li><strong>If same device</strong>: PDF is available directly in the browser for preview/download.</li>
+    <li>API endpoints available for: Uploading to database, Sharing via email, Downloading, Integration with the larger application.</li>
+</ul>
+
+<h2>4. TECHNOLOGY STACK</h2>
+<table>
+    <tr><th>Layer</th><th>Technology</th><th>Justification</th></tr>
+    <tr><td><strong>Backend Framework</strong></td><td>FastAPI (Python 3.11+)</td><td>Async-native, WebSocket support, auto-generated docs, high performance</td></tr>
+    <tr><td><strong>WebSocket</strong></td><td>FastAPI WebSocket + <code>uvicorn</code></td><td>Native support, async, low latency</td></tr>
+    <tr><td><strong>Task Queue</strong></td><td>Celery + Redis</td><td>Offload heavy CV processing, prevent blocking</td></tr>
+    <tr><td><strong>CV Processing</strong></td><td>OpenCV 4.x + NumPy + scikit-image</td><td>Industry standard, extensive document processing capabilities</td></tr>
+    <tr><td><strong>PDF Generation</strong></td><td><code>img2pdf</code> + <code>pikepdf</code></td><td>Lossless image-to-PDF, metadata support, small file sizes</td></tr>
+    <tr><td><strong>Frontend</strong></td><td>Vanilla JS / Lightweight Preact</td><td>Minimal bundle, fast load on mobile, no heavy framework needed</td></tr>
+    <tr><td><strong>Camera API</strong></td><td>MediaDevices API (<code>getUserMedia</code>)</td><td>Native browser API, no plugins needed</td></tr>
+    <tr><td><strong>Database</strong></td><td>PostgreSQL + SQLAlchemy (async)</td><td>Reliable, async driver available (<code>asyncpg</code>)</td></tr>
+    <tr><td><strong>File Storage</strong></td><td>MinIO (S3-compatible) or Local</td><td>Scalable, S3-compatible API for easy migration</td></tr>
+</table>
+
+<h2>5. ARCHITECTURE DIAGRAM</h2>
+<pre>
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                         SYSTEM ARCHITECTURE                                 │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│  ┌─────────────┐         ┌─────────────┐                                    │
+│  │   DESKTOP   │         │   MOBILE    │                                    │
+│  │   BROWSER   │         │   BROWSER   │                                    │
+│  │             │         │             │                                    │
+│  │ ┌─────────┐ │         │ ┌─────────┐ │                                    │
+│  │ │ QR Code │ │         │ │ Camera  │ │                                    │
+│  │ │ Display │ │         │ │   UI    │ │                                    │
+│  │ └────┬────┘ │         │ └────┬────┘ │                                    │
+│  └──────┼──────┘         └──────┼──────┘                                    │
+│         │    WebSocket          │   WebSocket (Binary Frames)               │
+│         └──────────┬────────────┘                                           │
+│                    ▼                                                        │
+│  ┌─────────────────────────────────────────┐                                │
+│  │          FASTAPI APPLICATION             │                                │
+│  │                                          │                                │
+│  │  ┌──────────┐  ┌──────────┐  ┌────────┐ │    ┌──────────────────────┐   │
+│  │  │ REST API │  │WebSocket │  │Session │ │───▶│       REDIS          │   │
+│  │  └──────────┘  └──────────┘  └────────┘ │    │  (PubSub, Broker)    │   │
+│  └──────────────────┬──────────────────────┘    └──────────┬───────────┘   │
+│                     │                                      │               │
+│                     ▼                                      ▼               │
+│  ┌──────────────────────────────┐               ┌──────────────────────┐   │
+│  │        POSTGRESQL            │               │    CELERY WORKERS    │   │
+│  │  • Sessions & Metadata       │               │  • CV Pipeline       │   │
+│  └──────────────────────────────┘               └──────────┬───────────┘   │
+│                                                            ▼               │
+│                                                 ┌──────────────────────┐   │
+│                                                 │   FILE STORAGE       │   │
+│                                                 └──────────────────────┘   │
+└─────────────────────────────────────────────────────────────────────────────┘
+</pre>
+
+<h2>6. WEBSOCKET COMMUNICATION PROTOCOL</h2>
+<p>To minimize latency, images are sent as <strong>binary WebSocket frames</strong> containing a JPEG compressed buffer directly from the HTML Canvas, bypassing base64 encoding overhead (saves 33% payload size).</p>
+<table>
+    <tr><th>Message Type</th><th>Direction</th><th>Description</th></tr>
+    <tr><td><code>device_paired</code></td><td>Server → Desktop</td><td>Mobile device connected successfully</td></tr>
+    <tr><td><code>image_captured</code></td><td>Mobile → Server</td><td>Raw image binary frame sent</td></tr>
+    <tr><td><code>capture_progress</code></td><td>Server → Desktop</td><td>Page count update, thumbnails</td></tr>
+    <tr><td><code>processing_progress</code></td><td>Server → Both</td><td>Progress percentage + current step</td></tr>
+    <tr><td><code>processing_complete</code></td><td>Server → Both</td><td>PDF ready, download URL</td></tr>
+</table>
+
+<h2>7. API SPECIFICATION (REST)</h2>
+<pre>
+SESSION MANAGEMENT
+──────────────────
+POST   /api/v1/sessions
+       → Create new capture session. Returns { session_id, qr_code_url, ws_token }
+
+GET    /capture/{session_id}?token={jwt}
+       → Serve the mobile capture UI HTML page
+
+SUBMISSION / PDF
+────────────────
+GET    /api/v1/submissions/{session_id}/pdf
+       → Download the generated PDF
+
+POST   /api/v1/submissions/{session_id}/upload
+       → Upload PDF to permanent storage / database
+
+POST   /api/v1/submit-assignment
+       → Integration endpoint for parent application
+</pre>
+
+<h2>8. DATABASE SCHEMA</h2>
+<pre>
+TABLE: capture_sessions
+───────────────────────
+id              UUID PRIMARY KEY
+assignment_id   VARCHAR(255) NOT NULL
+user_id         VARCHAR(255) NOT NULL
+status          ENUM('created', 'paired', 'capturing', 'processing', 'completed')
+page_count      INTEGER DEFAULT 0
+pdf_path        VARCHAR(500)
+created_at      TIMESTAMP WITH TZ
+
+TABLE: captured_pages
+─────────────────────
+id              UUID PRIMARY KEY
+session_id      UUID FK → capture_sessions
+page_number     INTEGER NOT NULL
+raw_image_path  VARCHAR(500)
+has_diagram     BOOLEAN DEFAULT FALSE
+</pre>
+
+<h2>9. SECURITY ARCHITECTURE</h2>
+<ul>
+    <li><strong>Transport Security:</strong> All connections over HTTPS/WSS (TLS 1.3). Nginx handles SSL termination.</li>
+    <li><strong>Session Security:</strong> Session IDs are UUID v4. JWT tokens are short-lived (15 minutes), signed with HS256, and passed in the QR code.</li>
+    <li><strong>Input Validation:</strong> Max image size of 10MB per frame. Max 50 pages per session. File type validation (JPEG magic bytes check).</li>
+    <li><strong>API Security:</strong> API key authentication for integration endpoints. Rate limiting applied (100 requests/min).</li>
+    <li><strong>File Storage:</strong> Files stored with UUID names. Auto-cleanup deletes raw images after PDF generation.</li>
+</ul>
+
+<h2>10. LATENCY OPTIMIZATION: EAGER VS BATCH</h2>
+<p><strong>Recommendation: Use Eager Processing</strong> with Celery chord pattern for minimum perceived latency.</p>
+<pre>
+EAGER PROCESSING (Low Latency Pattern):
+───────────────────────────────────────
+Page 1 captured ──▶ [Start processing page 1]
+Page 2 captured ──▶ [Start processing page 2] │ Page 1 still running
+Page 3 captured ──▶ [Start processing page 3] │ Page 2 still running
+User clicks Finish ──▶ [Wait for remaining] ──▶ [Generate PDF]
+</pre>
+
+<h2>11. PROJECT STRUCTURE</h2>
+<pre>
+assignment-capture-service/
+├── docker-compose.yml
+├── requirements.txt
+├── app/
+│   ├── main.py                      # FastAPI app initialization
+│   ├── api/                         # REST Endpoints
+│   ├── websocket/                   # WebSocket connection manager
+│   ├── services/                    # Business logic (QR, PDF, Storage)
+│   ├── cv_pipeline/                 # Computer Vision modules
+│   │   ├── document_detector.py
+│   │   ├── shadow_removal.py
+│   │   ├── region_classifier.py     # Text vs diagram classification
+│   │   └── compositor.py
+│   ├── workers/                     # Celery configuration and tasks
+│   ├── models/                      # SQLAlchemy models
+│   └── static/                      # Minimal Frontend UI
+└── tests/
+</pre>
+
+<h2>12. DEPLOYMENT ARCHITECTURE</h2>
+<pre>
+┌─────────────────────────────────────────────────────────────────────────┐
+│                    DOCKER COMPOSE SERVICES                              │
+├─────────────────────────────────────────────────────────────────────────┤
+│                                                                         │
+│  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐  ┌──────────────┐    │
+│  │    nginx    │  │   fastapi   │  │   worker    │  │   worker-2   │    │
+│  │  Port: 443  │─▶│  Port: 8000 │  │  (celery)   │  │  (celery)    │    │
+│  └─────────────┘  └──────┬──────┘  └──────┬──────┘  └──────┬───────┘    │
+│                          │                │                 │           │
+│                          ▼                ▼                 ▼           │
+│                   ┌─────────────┐  ┌─────────────┐                      │
+│                   │    redis    │  │  postgresql │                      │
+│                   └─────────────┘  └─────────────┘                      │
+└─────────────────────────────────────────────────────────────────────────┘
+</pre>
+
+<h2>13. DEVELOPMENT PHASES & TIMELINE</h2>
+<ul>
+    <li><strong>Phase 1: Foundation (Week 1-2):</strong> FastAPI setup, Database, Redis, Session API, QR generation.</li>
+    <li><strong>Phase 2: Real-time Communication (Week 2-3):</strong> WebSocket manager, Desktop/Mobile handlers, Binary frame protocol.</li>
+    <li><strong>Phase 3: Mobile Capture UI (Week 3-4):</strong> Camera access (getUserMedia), Edge detection overlay, Review/Retake flow.</li>
+    <li><strong>Phase 4: CV Pipeline (Week 4-6):</strong> Document detection, Shadow removal, Content-aware region classification, Celery integration.</li>
+    <li><strong>Phase 5: PDF & Delivery (Week 6-7):</strong> PDF generation, metadata injection, optimization, WS delivery.</li>
+    <li><strong>Phase 6: Security & Hardening (Week 7-8):</strong> Rate limiting, CORS, cleanup crons, error handling.</li>
+    <li><strong>Phase 7: Testing & Polish (Week 8-10):</strong> Unit/Integration tests, Load testing, latency profiling.</li>
+</ul>
+<p><strong>Total Estimated Timeline: 8-10 weeks (1 developer) or 5-6 weeks (2 developers)</strong></p>
+
+</body>
+</html>
