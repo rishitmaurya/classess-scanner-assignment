@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1.0">
+    <title>EduPortal — Assignments</title>
+    <link rel="stylesheet" href="/static/css/main.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+</head>
+<body>
+
+<header class="header">
+    <div class="header-inner">
+        <a href="/" class="logo"><i class="fas fa-graduation-cap"></i> EduPortal</a>
+        <nav class="nav">
+            <a href="#" class="active">Dashboard</a>
+            <a href="#">Courses</a>
+            <a href="#">Grades</a>
+        </nav>
+        <div class="user"><div class="avatar">JS</div><span class="user-name">John Smith</span></div>
+    </div>
+</header>
+
+<main class="content">
+    <div class="container">
+        <div class="page-title">
+            <h1><i class="fas fa-tasks"></i> Assignments</h1>
+            <p>CS101 — Introduction to Programming</p>
+        </div>
+        <div class="grid">
+            <div class="card">
+                <div class="card-top">
+                    <span class="badge pending">Pending</span>
+                    <span class="due"><i class="far fa-clock"></i> Dec 15, 2024</span>
+                </div>
+                <div class="card-body">
+                    <h3>Assignment 1: Data Structures</h3>
+                    <p>Implement linked lists, stacks, and queues with handwritten solutions.</p>
+                    <div class="meta">
+                        <span><i class="fas fa-file-alt"></i> Handwritten</span>
+                        <span><i class="fas fa-star"></i> 100 pts</span>
+                    </div>
+                </div>
+                <div class="card-bottom">
+                    <button class="btn-scan" onclick="openScanner('Assignment 1: Data Structures')">
+                        <i class="fas fa-camera"></i> Scan & Submit
+                    </button>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-top">
+                    <span class="badge pending">Pending</span>
+                    <span class="due"><i class="far fa-clock"></i> Dec 20, 2024</span>
+                </div>
+                <div class="card-body">
+                    <h3>Assignment 2: Algorithm Analysis</h3>
+                    <p>Analyze time complexity with diagrams and step-by-step solutions.</p>
+                    <div class="meta">
+                        <span><i class="fas fa-file-alt"></i> Handwritten</span>
+                        <span><i class="fas fa-star"></i> 150 pts</span>
+                    </div>
+                </div>
+                <div class="card-bottom">
+                    <button class="btn-scan" onclick="openScanner('Assignment 2: Algorithm Analysis')">
+                        <i class="fas fa-camera"></i> Scan & Submit
+                    </button>
+                </div>
+            </div>
+
+            <div class="card done">
+                <div class="card-top">
+                    <span class="badge completed">Submitted</span>
+                    <span class="due"><i class="fas fa-check"></i> Dec 5, 2024</span>
+                </div>
+                <div class="card-body">
+                    <h3>Assignment 0: Introduction</h3>
+                    <p>Write about yourself and your programming experience.</p>
+                    <div class="meta">
+                        <span><i class="fas fa-file-pdf"></i> 3 Pages</span>
+                        <span><i class="fas fa-star"></i> 50/50</span>
+                    </div>
+                </div>
+                <div class="card-bottom">
+                    <button class="btn-view"><i class="fas fa-eye"></i> View Submission</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</main>
+
+<!-- ═══ MODAL ═══ -->
+<div id="modal" class="modal" style="display:none">
+    <div class="modal-box">
+        <div class="modal-head">
+            <h2><i class="fas fa-camera"></i> Document Scanner</h2>
+            <button class="close-btn" onclick="closeScanner()"><i class="fas fa-times"></i></button>
+        </div>
+
+        <div class="steps">
+            <div class="step active" id="si1"><div class="sn">1</div><span>Method</span></div>
+            <div class="step-line"></div>
+            <div class="step" id="si2"><div class="sn">2</div><span>Scan</span></div>
+            <div class="step-line"></div>
+            <div class="step" id="si3"><div class="sn">3</div><span>Submit</span></div>
+        </div>
+
+        <div class="modal-content">
+            <!-- STEP 1 -->
+            <div id="s1" class="step-panel">
+                <div class="center-text">
+                    <h3 id="assignmentTitle"></h3>
+                    <p>Choose how to scan your assignment pages</p>
+                </div>
+                <div class="option-box">
+                    <div class="option-icon"><i class="fas fa-qrcode"></i></div>
+                    <h4>Scan with Another Device</h4>
+                    <p>Scan this QR code with your phone</p>
+                    <div id="qrArea" class="qr-area">
+                        <div class="loading"><div class="spin"></div>Generating...</div>
+                    </div>
+                    <div id="connStatus" class="conn-badge waiting">
+                        <i class="fas fa-wifi"></i> Waiting for device...
+                    </div>
+                </div>
+                <div class="or"><span>OR</span></div>
+                <div class="option-box clickable" onclick="useThisDevice()">
+                    <div class="option-icon"><i class="fas fa-mobile-screen"></i></div>
+                    <h4>Use This Device Camera</h4>
+                    <p>Open camera on this device directly</p>
+                    <button class="btn-device"><i class="fas fa-camera"></i> Open Camera</button>
+                </div>
+            </div>
+
+            <!-- STEP 2A -->
+            <div id="s2local" class="step-panel" style="display:none">
+                <div class="cam-wrap">
+                    <video id="camVideo" autoplay playsinline></video>
+                    <div class="cam-overlay">
+                        <div class="frame">
+                            <i class="corner tl"></i><i class="corner tr"></i>
+                            <i class="corner bl"></i><i class="corner br"></i>
+                        </div>
+                    </div>
+                    <canvas id="camCanvas" style="display:none"></canvas>
+                </div>
+                <div class="cam-controls">
+                    <div class="pg-badge"><i class="fas fa-file"></i> Page <b id="pgNum">1</b></div>
+                    <button class="cap-btn" onclick="captureLocal()">
+                        <div class="cap-ring"><i class="fas fa-camera"></i></div>
+                    </button>
+                    <button id="finLocalBtn" class="finish-btn" onclick="finishLocal()" style="display:none">
+                        <i class="fas fa-check"></i> Finish
+                    </button>
+                </div>
+                <div id="localThumbs" class="thumb-strip"></div>
+            </div>
+
+            <!-- STEP 2B -->
+            <div id="s2remote" class="step-panel" style="display:none">
+                <div class="remote-view">
+                    <div class="conn-badge connected"><i class="fas fa-mobile-alt"></i> Mobile Connected</div>
+                    <h3>Scanning on mobile device...</h3>
+                    <p>Pages appear here as they're scanned</p>
+                    <div class="big-count"><span id="remoteCount">0</span><small>Pages Scanned</small></div>
+                    <div id="remoteThumbs" class="thumb-strip centered"></div>
+                </div>
+            </div>
+
+            <!-- STEP 3 -->
+            <div id="s3" class="step-panel" style="display:none">
+                <div class="review">
+                    <div class="done-icon-wrap"><i class="fas fa-file-pdf"></i></div>
+                    <h3>PDF Ready!</h3>
+                    <p id="pdfInfo"></p>
+
+                    <!-- PDF Preview — LARGE -->
+                    <div id="pdfPreviewWrap" class="pdf-preview-wrap" style="display:none">
+                        <iframe id="pdfPreviewFrame" class="pdf-preview-frame" src=""></iframe>
+                    </div>
+
+                    <!-- Page thumbnails -->
+                    <div id="reviewThumbs" class="thumb-strip centered"></div>
+
+                    <div class="actions">
+                        <a id="dlBtn" href="#" class="act-btn dl" download>
+                            <i class="fas fa-download"></i> Download
+                        </a>
+                        <button class="act-btn share" onclick="sharePdf()">
+                            <i class="fas fa-share-alt"></i> Share
+                        </button>
+                        <button class="act-btn submit" onclick="submitAssignment()">
+                            <i class="fas fa-paper-plane"></i> Submit
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Preview overlay -->
+<div id="previewLocal" class="preview-overlay" style="display:none">
+    <div class="preview-box">
+        <h3>Page Preview</h3>
+        <div class="preview-img-wrap">
+            <img id="previewLocalImg" src="" alt="">
+        </div>
+        <div class="preview-acts">
+            <button class="pbtn retake" onclick="retakeLocal()"><i class="fas fa-redo"></i> Retake</button>
+            <button class="pbtn accept" onclick="acceptLocal()"><i class="fas fa-check"></i> Accept</button>
+        </div>
+    </div>
+</div>
+
+<!-- Toast -->
+<div id="toast" class="toast" style="display:none">
+    <i id="toastIcon" class="fas fa-check-circle"></i>
+    <span id="toastMsg"></span>
+</div>
+
+<script>const BASE_URL = "{{ base_url }}";</script>
+<script src="/static/js/app.js"></script>
+</body>
+</html>

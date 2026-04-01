@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no,viewport-fit=cover">
+    <title>Scanner</title>
+    <link rel="stylesheet" href="/static/css/mobile.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+</head>
+<body>
+
+<div class="app">
+    <header class="top-bar">
+        <div class="tb-left"><i class="fas fa-camera"></i><span>Document Scanner</span></div>
+        <div id="connDot" class="conn-dot connecting">
+            <div class="dot"></div><span>Connecting...</span>
+        </div>
+    </header>
+
+    <!-- Camera -->
+    <div id="camSection" class="cam-section">
+        <video id="vid" autoplay playsinline></video>
+        <div class="cam-ov">
+            <div class="guide">
+                <i class="gc tl"></i><i class="gc tr"></i>
+                <i class="gc bl"></i><i class="gc br"></i>
+            </div>
+            <span class="guide-txt">Align document in frame</span>
+        </div>
+        <canvas id="cvs" style="display:none"></canvas>
+    </div>
+
+    <!-- Controls — fixed at bottom, never overlaps -->
+    <div id="controlSection" class="ctrl-section">
+        <div class="ctrl-info">
+            <div class="pg-pill"><i class="fas fa-file"></i> <span id="pgLabel">Page 1</span></div>
+            <div id="scannedLabel" class="scanned-label">0 scanned</div>
+        </div>
+        <div class="ctrl-row">
+            <button class="small-btn" onclick="toggleFlash()"><i class="fas fa-bolt" id="flashIcon"></i></button>
+            <button class="big-btn" onclick="capture()">
+                <div class="big-inner"><i class="fas fa-camera"></i></div>
+            </button>
+            <button class="small-btn" onclick="flipCam()"><i class="fas fa-sync-alt"></i></button>
+        </div>
+        <!-- Finish button inside controls, won't overlap -->
+        <button id="finBtn" class="fin-btn" style="display:none" onclick="finish()">
+            <i class="fas fa-check-circle"></i> Finish Scanning
+        </button>
+        <!-- Inline thumbnail strip -->
+        <div id="inlineThumbs" class="inline-thumbs" style="display:none">
+            <div id="thumbList" class="thumb-list-inline"></div>
+        </div>
+    </div>
+
+    <!-- Capture Preview -->
+    <div id="prevOv" class="prev-overlay" style="display:none">
+        <div class="prev-box">
+            <h3>Page <span id="prevPageNum">1</span> Preview</h3>
+            <div class="prev-img-wrap"><img id="prevImg" src="" alt=""></div>
+            <div class="prev-btns">
+                <button class="prev-b retake" onclick="retake()"><i class="fas fa-redo"></i> Retake</button>
+                <button class="prev-b ok" onclick="accept()"><i class="fas fa-check"></i> Accept</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Processing -->
+    <div id="processing" class="proc-ov" style="display:none">
+        <div class="proc-box">
+            <div class="proc-spin"></div>
+            <h3>Processing</h3>
+            <p id="procMsg">Enhancing pages...</p>
+            <div class="prog"><div id="progBar" class="prog-fill"></div></div>
+        </div>
+    </div>
+
+    <!-- Done — scrollable -->
+    <div id="doneView" class="done-view" style="display:none">
+        <div class="done-scroll">
+            <div class="done-box">
+                <i class="fas fa-check-circle done-icon-anim"></i>
+                <h2>Scanning Complete!</h2>
+                <p id="doneInfo">PDF has been generated</p>
+
+                <!-- PDF Preview — large -->
+                <div id="mobilePdfPreview" class="mobile-pdf-preview" style="display:none">
+                    <iframe id="mobilePdfFrame" class="mobile-pdf-frame" src=""></iframe>
+                </div>
+
+                <!-- Page thumbnails -->
+                <div id="doneThumbs" class="done-thumbs"></div>
+
+                <div class="done-acts">
+                    <a id="dlLink" href="#" class="done-b dl" download><i class="fas fa-download"></i> Download PDF</a>
+                    <button class="done-b share" onclick="sharePDF()"><i class="fas fa-share-alt"></i> Share</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+const SESSION_ID = "{{ session_id }}";
+const BASE_URL = "{{ base_url }}";
+</script>
+<script src="/static/js/scanner.js"></script>
+</body>
+</html>
