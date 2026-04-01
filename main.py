@@ -24,8 +24,15 @@ from fastapi.responses import HTMLResponse, FileResponse, JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 
 import config
-from cv_processor import enhance_document_image, create_pdf_from_images, make_preview_b64
 from tunnel_manager import tunnel_manager
+
+from cv_processor import (
+    enhance_document_image, 
+    create_pdf_from_images, 
+    make_preview_b64,
+    detect_document_corners,
+    process_document_with_corners
+)
 
 
 # ─── Storage ───
@@ -337,6 +344,80 @@ async def detect_tunnel():
         return {"status": "found", "url": url}
     return {"status": "not_found"}
 
+
+@app.post("/api/detect-corners/{session_id}")
+async def detect_corners(session_id: str, file: UploadFile = File(...)):
+    """Detect document corners in uploaded image frame."""
+    if session_id not in sessions:
+        raise HTTPException(404, "Session not found")
+    
+    raw = await file.read()
+    corners = detect_document_corners(raw)
+    
+    return JSONResponse({
+        "status": "success",
+        "corners": corners  # [[x1,y1], [x2,y2], [x3,y3], [x4,y4]] as percentages
+    })
+
+
+@app.post("/api/upload-page-with-corners/{session_id}")
+async def upload_page_with_corners(
+    session_id: str,
+    file: UploadFile = File(...),
+    page_number: int = Form(...),
+    corners: str = Form(...)  # JSON string: "[[x1,y1],[x2,y2],[x3,y3],[x4,y4]]"
+):
+    """Upload page with user-specified corner points."""
+    import json
+    
+    if session_id not in sessions:
+        raise HTTPException(404, "Session not found")
+    
+    raw = await file.read()
+    
+    try:
+        corner_points = json.loads(corners)
+    except:
+        corner_points = None
+    
+    print(f"  [upload] session={session_id} page={page_number} corners={corner_points is not None}")
+    
+    if corner_points and len(corner_points) == 4:
+        # Process with user corners
+        enhanced = process_document_with_corners(raw, corner_points)
+    else:
+        # Fallback to auto-detect
+        enhanced = enhance_document_image(raw)
+    
+    preview = make_preview_b64(enhanced)
+    
+    fname = f"{session_id}_p{page_number}_{int(time.time())}.jpg"
+    fpath = os.path.join(config.SCANS_DIR, fname)
+    with open(fpath, "wb") as f:
+        f.write(enhanced)
+    
+    sessions[session_id]["pages"][page_number] = {
+        "page_number": page_number,
+        "filepath": fpath,
+        "filename": fname
+    }
+    sessions[session_id]["page_previews"][page_number] = f"data:image/jpeg;base64,{preview}"
+    
+    total = len(sessions[session_id]["pages"])
+    
+    await _notify(session_id, "desktop", {
+        "type": "page_uploaded",
+        "page_number": page_number,
+        "total_pages": total,
+        "preview": f"data:image/jpeg;base64,{preview}"
+    })
+    
+    return JSONResponse({
+        "status": "success",
+        "page_number": page_number,
+        "total_pages": total,
+        "preview": f"data:image/jpeg;base64,{preview}"
+    })
 
 # ═══ WEBSOCKET ═══
 

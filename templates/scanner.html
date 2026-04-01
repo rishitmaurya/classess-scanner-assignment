@@ -17,20 +17,30 @@
         </div>
     </header>
 
-    <!-- Camera -->
+    <!-- Camera with live detection -->
     <div id="camSection" class="cam-section">
         <video id="vid" autoplay playsinline></video>
-        <div class="cam-ov">
-            <div class="guide">
-                <i class="gc tl"></i><i class="gc tr"></i>
-                <i class="gc bl"></i><i class="gc br"></i>
-            </div>
-            <span class="guide-txt">Align document in frame</span>
+        
+        <!-- SVG overlay for detected rectangle -->
+        <svg id="detectionOverlay" class="detection-overlay">
+            <polygon id="detectionPoly" class="detection-poly" points="0,0 0,0 0,0 0,0"/>
+            <!-- Corner handles -->
+            <circle id="corner0" class="corner-handle" cx="0" cy="0" r="12"/>
+            <circle id="corner1" class="corner-handle" cx="0" cy="0" r="12"/>
+            <circle id="corner2" class="corner-handle" cx="0" cy="0" r="12"/>
+            <circle id="corner3" class="corner-handle" cx="0" cy="0" r="12"/>
+        </svg>
+        
+        <!-- Status indicator -->
+        <div id="detectStatus" class="detect-status">
+            <i class="fas fa-search"></i> <span>Detecting document...</span>
         </div>
+        
         <canvas id="cvs" style="display:none"></canvas>
+        <canvas id="detectCanvas" style="display:none"></canvas>
     </div>
 
-    <!-- Controls — fixed at bottom, never overlaps -->
+    <!-- Controls -->
     <div id="controlSection" class="ctrl-section">
         <div class="ctrl-info">
             <div class="pg-pill"><i class="fas fa-file"></i> <span id="pgLabel">Page 1</span></div>
@@ -43,24 +53,32 @@
             </button>
             <button class="small-btn" onclick="flipCam()"><i class="fas fa-sync-alt"></i></button>
         </div>
-        <!-- Finish button inside controls, won't overlap -->
         <button id="finBtn" class="fin-btn" style="display:none" onclick="finish()">
             <i class="fas fa-check-circle"></i> Finish Scanning
         </button>
-        <!-- Inline thumbnail strip -->
         <div id="inlineThumbs" class="inline-thumbs" style="display:none">
             <div id="thumbList" class="thumb-list-inline"></div>
         </div>
     </div>
 
-    <!-- Capture Preview -->
+    <!-- Capture Preview with adjustable corners -->
     <div id="prevOv" class="prev-overlay" style="display:none">
-        <div class="prev-box">
-            <h3>Page <span id="prevPageNum">1</span> Preview</h3>
-            <div class="prev-img-wrap"><img id="prevImg" src="" alt=""></div>
+        <div class="prev-box-full">
+            <h3>Adjust Corners — Page <span id="prevPageNum">1</span></h3>
+            <div class="prev-canvas-wrap">
+                <canvas id="previewCanvas"></canvas>
+                <svg id="previewOverlay" class="preview-svg-overlay">
+                    <polygon id="previewPoly" class="preview-poly" points="0,0 0,0 0,0 0,0"/>
+                    <circle id="prevCorner0" class="prev-corner" cx="0" cy="0" r="16" data-idx="0"/>
+                    <circle id="prevCorner1" class="prev-corner" cx="0" cy="0" r="16" data-idx="1"/>
+                    <circle id="prevCorner2" class="prev-corner" cx="0" cy="0" r="16" data-idx="2"/>
+                    <circle id="prevCorner3" class="prev-corner" cx="0" cy="0" r="16" data-idx="3"/>
+                </svg>
+            </div>
+            <p class="adjust-hint"><i class="fas fa-hand-pointer"></i> Drag corners to adjust selection</p>
             <div class="prev-btns">
                 <button class="prev-b retake" onclick="retake()"><i class="fas fa-redo"></i> Retake</button>
-                <button class="prev-b ok" onclick="accept()"><i class="fas fa-check"></i> Accept</button>
+                <button class="prev-b ok" onclick="accept()"><i class="fas fa-check"></i> Crop & Save</button>
             </div>
         </div>
     </div>
@@ -70,27 +88,22 @@
         <div class="proc-box">
             <div class="proc-spin"></div>
             <h3>Processing</h3>
-            <p id="procMsg">Enhancing pages...</p>
+            <p id="procMsg">Cropping document...</p>
             <div class="prog"><div id="progBar" class="prog-fill"></div></div>
         </div>
     </div>
 
-    <!-- Done — scrollable -->
+    <!-- Done -->
     <div id="doneView" class="done-view" style="display:none">
         <div class="done-scroll">
             <div class="done-box">
                 <i class="fas fa-check-circle done-icon-anim"></i>
                 <h2>Scanning Complete!</h2>
                 <p id="doneInfo">PDF has been generated</p>
-
-                <!-- PDF Preview — large -->
                 <div id="mobilePdfPreview" class="mobile-pdf-preview" style="display:none">
                     <iframe id="mobilePdfFrame" class="mobile-pdf-frame" src=""></iframe>
                 </div>
-
-                <!-- Page thumbnails -->
                 <div id="doneThumbs" class="done-thumbs"></div>
-
                 <div class="done-acts">
                     <a id="dlLink" href="#" class="done-b dl" download><i class="fas fa-download"></i> Download PDF</a>
                     <button class="done-b share" onclick="sharePDF()"><i class="fas fa-share-alt"></i> Share</button>

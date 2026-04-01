@@ -1,15 +1,16 @@
 /* ═══════════════════════════════════════
-   DESKTOP — Scanner Modal
+   DESKTOP — Scanner Modal (Fixed Page Count)
    ═══════════════════════════════════════ */
 
 let session = null;
 let assignment = '';
 let ws = null;
 let stream = null;
-let confirmedPages = {};  // { pageNumber: { preview: "data:..." } }
-let pgNum = 1;
+let confirmedPages = {};    // { pageNum: { preview: "..." } }
+let nextPageNum = 1;        // Next page number to use
 let localMode = false;
 let currentBlob = null;
+let pendingPageNum = null;  // Page number for pending capture
 let isUploading = false;
 
 // ═══ Open / Close ═══
@@ -19,17 +20,21 @@ async function openScanner(title) {
     document.getElementById('assignmentTitle').textContent = title;
     document.getElementById('modal').style.display = 'flex';
 
+    // Reset state
     confirmedPages = {};
-    pgNum = 1;
+    nextPageNum = 1;
     localMode = false;
     isUploading = false;
     currentBlob = null;
+    pendingPageNum = null;
 
     clearElement('localThumbs');
     clearElement('remoteThumbs');
     clearElement('reviewThumbs');
     hide('finLocalBtn');
     hide('pdfPreviewWrap');
+    document.getElementById('pgNum').textContent = '1';
+    document.getElementById('remoteCount').textContent = '0';
     goStep(1);
 
     try {
@@ -81,7 +86,7 @@ function handleMsg(d) {
             document.getElementById('remoteCount').textContent = d.total_pages;
             if (d.preview) {
                 removeThumb('remoteThumbs', d.page_number);
-                addThumb('remoteThumbs', d.preview, d.page_number);
+                addThumb('remoteThumbs', d.preview, d.page_number, true);
             }
             toast(`Page ${d.page_number} scanned`);
             break;
@@ -135,7 +140,11 @@ async function useThisDevice() {
 async function startCam() {
     try {
         stream = await navigator.mediaDevices.getUserMedia({
-            video: { facingMode: 'environment', width: { ideal: 1920 }, height: { ideal: 1080 } }
+            video: { 
+                facingMode: 'environment', 
+                width: { ideal: 2560 },   // Higher resolution
+                height: { ideal: 1920 } 
+            }
         });
         document.getElementById('camVideo').srcObject = stream;
     } catch (e) {
@@ -150,26 +159,41 @@ function stopCam() {
     if (v) v.srcObject = null;
 }
 
+// ═══ HIGH QUALITY capture ═══
+
+function captureHighQuality(videoEl) {
+    return new Promise(resolve => {
+        const c = document.getElementById('camCanvas');
+        const vw = videoEl.videoWidth;
+        const vh = videoEl.videoHeight;
+
+        // Full resolution
+        c.width = vw;
+        c.height = vh;
+        c.getContext('2d').drawImage(videoEl, 0, 0, vw, vh);
+
+        c.toBlob(b => resolve(b), 'image/jpeg', 0.92);
+    });
+}
+
 // ═══ Capture (Local) ═══
 
-function captureLocal() {
+async function captureLocal() {
     if (!session || isUploading) return;
     const v = document.getElementById('camVideo');
-    const c = document.getElementById('camCanvas');
-    c.width = v.videoWidth;
-    c.height = v.videoHeight;
-    c.getContext('2d').drawImage(v, 0, 0);
 
-    c.toBlob(b => {
-        currentBlob = b;
-        document.getElementById('previewLocalImg').src = URL.createObjectURL(b);
-        document.getElementById('previewLocal').style.display = 'flex';
-    }, 'image/jpeg', 0.92);
+    const blob = await captureHighQuality(v);
+    currentBlob = blob;
+    pendingPageNum = nextPageNum;  // Store which page this will be
+    
+    document.getElementById('previewLocalImg').src = URL.createObjectURL(blob);
+    document.getElementById('previewLocal').style.display = 'flex';
 }
 
 function retakeLocal() {
     document.getElementById('previewLocal').style.display = 'none';
     currentBlob = null;
+    pendingPageNum = null;
 }
 
 async function acceptLocal() {
@@ -178,7 +202,7 @@ async function acceptLocal() {
 
     document.getElementById('previewLocal').style.display = 'none';
 
-    const thisPage = pgNum;
+    const thisPage = pendingPageNum;
     const fd = new FormData();
     fd.append('file', currentBlob, `page_${thisPage}.jpg`);
     fd.append('page_number', thisPage);
@@ -188,16 +212,16 @@ async function acceptLocal() {
         const d = await r.json();
 
         if (d.status === 'success') {
-            // Store confirmed page
             confirmedPages[thisPage] = { preview: d.preview };
 
-            // Update thumbnail (remove old if retake, add new)
             removeThumb('localThumbs', thisPage);
             addThumb('localThumbs', d.preview, thisPage, true);
 
-            pgNum++;
-            document.getElementById('pgNum').textContent = pgNum;
-            show('finLocalBtn');
+            // Move to next page number
+            nextPageNum++;
+            document.getElementById('pgNum').textContent = nextPageNum;
+            
+            updateLocalUI();
             toast(`Page ${thisPage} saved ✓`);
         } else {
             toast('Upload failed', true);
@@ -208,7 +232,17 @@ async function acceptLocal() {
     }
 
     currentBlob = null;
+    pendingPageNum = null;
     isUploading = false;
+}
+
+function updateLocalUI() {
+    const count = Object.keys(confirmedPages).length;
+    if (count > 0) {
+        show('finLocalBtn');
+    } else {
+        hide('finLocalBtn');
+    }
 }
 
 async function finishLocal() {
@@ -235,15 +269,24 @@ async function finishLocal() {
     }
 }
 
-// ═══ Thumbnails ═══
+// ═══ Thumbnails — always with delete ═══
 
 function addThumb(cid, src, num, deletable) {
     const c = document.getElementById(cid);
     const t = document.createElement('div');
     t.className = 'thumb';
     t.id = `${cid}-t${num}`;
-    t.innerHTML = `<img src="${src}" alt="P${num}"><div class="thumb-num">${num}</div>`
-        + (deletable ? `<button class="thumb-del" onclick="event.stopPropagation();delPage(${num},'${cid}')"><i class="fas fa-times"></i></button>` : '');
+
+    let deleteBtn = '';
+    if (deletable) {
+        deleteBtn = `<button class="thumb-del" onclick="event.stopPropagation();delPage(${num},'${cid}')"><i class="fas fa-times"></i></button>`;
+    }
+
+    t.innerHTML = `
+        <img src="${src}" alt="P${num}">
+        <div class="thumb-num">${num}</div>
+        ${deleteBtn}
+    `;
     c.appendChild(t);
 }
 
@@ -255,30 +298,33 @@ function removeThumb(cid, num) {
 async function delPage(num, cid) {
     removeThumb(cid, num);
     delete confirmedPages[num];
+
     try {
         await fetch(`/api/delete-page/${session.session_id}/${num}`, { method: 'DELETE' });
     } catch (e) { console.error(e); }
 
-    if (Object.keys(confirmedPages).length === 0) hide('finLocalBtn');
+    updateLocalUI();
+
+    // Update remote count if applicable
+    const rc = document.getElementById('remoteCount');
+    if (rc) rc.textContent = Object.keys(confirmedPages).length;
 }
 
 // ═══ PDF Result ═══
 
 function showPdfResult(d) {
     document.getElementById('pdfInfo').textContent =
-        `${d.total_pages} page${d.total_pages > 1 ? 's' : ''} — Enhanced PDF`;
+        `${d.total_pages} page${d.total_pages > 1 ? 's' : ''} — auto-cropped & enhanced`;
 
     document.getElementById('dlBtn').href = d.pdf_url;
     document.getElementById('dlBtn').download = d.filename || 'assignment.pdf';
 
-    // PDF preview iframe
     if (d.preview_url || d.pdf_url) {
         const frame = document.getElementById('pdfPreviewFrame');
         frame.src = d.preview_url || d.pdf_url;
         show('pdfPreviewWrap');
     }
 
-    // Page thumbnails
     const rv = document.getElementById('reviewThumbs');
     rv.innerHTML = '';
     if (d.previews && d.previews.length > 0) {

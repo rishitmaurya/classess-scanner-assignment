@@ -27,15 +27,8 @@ NGROK_REGION = "in"
 NGROK_DOMAIN = ""
 MANUAL_PUBLIC_URL = ""
 
-# ─── CV SETTINGS ───
-# Pipeline: detect → normalize → brighten → whiten → sharpen
-# Output: clean GRAYSCALE (no binarization)
-CV_JPEG_QUALITY = 92
-CV_DESKEW_MAX_ANGLE = 15
-CV_CLAHE_CLIP = 1.5
-CV_SAUVOLA_WINDOW = 0
-CV_SAUVOLA_K = 0.2
-CV_SAUVOLA_R = 128.0
+# ─── CV SETTINGS — HIGH QUALITY ───
+CV_JPEG_QUALITY = 95  # Maximum quality for AI/OCR
 
 # ─── PDF ───
 PDF_PAGE_SIZE = "A4"
