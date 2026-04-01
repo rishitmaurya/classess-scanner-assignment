@@ -22,23 +22,20 @@ CORS_HEADERS = ["*"]
 # ─── TUNNEL ───
 NGROK_ENABLED = True
 CLOUDFLARE_ENABLED = False
-NGROK_AUTH_TOKEN = ""  # https://dashboard.ngrok.com/get-started/your-authtoken
+NGROK_AUTH_TOKEN = ""
 NGROK_REGION = "in"
 NGROK_DOMAIN = ""
 MANUAL_PUBLIC_URL = ""
 
 # ─── CV SETTINGS ───
-# Pipeline: detect_document → illum_division → bin_sauvola
-CV_JPEG_QUALITY = 95
+# Pipeline: detect → normalize → brighten → whiten → sharpen
+# Output: clean GRAYSCALE (no binarization)
+CV_JPEG_QUALITY = 92
 CV_DESKEW_MAX_ANGLE = 15
-
-# Sauvola binarization params
-CV_SAUVOLA_WINDOW = 0   # 0 = auto-calculate from image size
-CV_SAUVOLA_K = 0.2      # sensitivity (lower = more text preserved)
-CV_SAUVOLA_R = 128.0    # dynamic range
-
-# CLAHE (used if you switch to clahe illumination)
 CV_CLAHE_CLIP = 1.5
+CV_SAUVOLA_WINDOW = 0
+CV_SAUVOLA_K = 0.2
+CV_SAUVOLA_R = 128.0
 
 # ─── PDF ───
 PDF_PAGE_SIZE = "A4"
